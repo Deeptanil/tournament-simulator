@@ -1,33 +1,25 @@
 import { useState, useEffect } from 'react'
-import { getGroups, getRuns, getProbabilities } from '../api'
+import { getGroups } from '../api'
 import { teamLogoUrl } from '../api'
 import { Icons } from '../Icons'
 
 const GROUP_COLORS = { A: '#4fc3f7', B: '#ffa726', C: '#00e676', D: '#a855f7' }
 
-export default function Groups({ leagueId }) {
+export default function Groups({ leagueId, simResults }) {
   const [groups, setGroups]   = useState({})
-  const [probs, setProbs]     = useState({})
   const [loaded, setLoaded]   = useState(false)
 
   useEffect(() => {
     setLoaded(false)
     setGroups({})
-    setProbs({})
-    Promise.all([getGroups(leagueId), getRuns()]).then(([grpData, runs]) => {
-      setGroups(grpData)
-      if (runs.length > 0) {
-        getProbabilities(runs[0].id).then(data => {
-          const pm = {}
-          data.forEach(r => { pm[r.team_name] = r })
-          setProbs(pm)
-          setLoaded(true)
-        })
-      } else {
-        setLoaded(true)
-      }
-    }).catch(() => setLoaded(true))
+    getGroups(leagueId)
+      .then(grpData => { setGroups(grpData); setLoaded(true) })
+      .catch(() => setLoaded(true))
   }, [leagueId])
+
+  // Build probs map from parent simResults
+  const probs = {}
+  ;(simResults || []).forEach(r => { probs[r.team_name] = r })
 
   const leagueNames = { 39: 'Premier League', 140: 'La Liga', 135: 'Serie A' }
 

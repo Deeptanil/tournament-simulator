@@ -1,27 +1,17 @@
 import { useState, useEffect } from 'react'
-import { getRuns, getProbabilities, getGroups } from '../api'
+import { getGroups } from '../api'
 import { teamLogoUrl } from '../api'
 import { Icons } from '../Icons'
 
-export default function Bracket({ leagueId }) {
-  const [probs, setProbs]   = useState([])
-  const [runId, setRunId]   = useState(null)
-  const [runs, setRuns]     = useState([])
+export default function Bracket({ leagueId, simResults, simLoading }) {
   const [groups, setGroups] = useState({})
 
   useEffect(() => {
-    setProbs([])
     setGroups({})
     getGroups(leagueId).then(setGroups).catch(() => {})
-    getRuns().then(data => {
-      setRuns(data)
-      if (data.length > 0) {
-        setRunId(data[0].id)
-        getProbabilities(data[0].id).then(setProbs)
-      }
-    })
   }, [leagueId])
 
+  const probs = simResults || []
   const byName = (name) => probs.find(p => p.team_name === name)
 
   // Build bracket from dynamic groups
@@ -70,16 +60,24 @@ export default function Bracket({ leagueId }) {
 
   const hasData = probs.length > 0 && Object.keys(groups).length > 0
 
+  if (simLoading) return (
+    <div className="page">
+      <div className="page-title">Knockout Bracket</div>
+      <div className="empty-msg"><span className="spinner-ring" /><span>Running simulation…</span></div>
+    </div>
+  )
+
   if (!hasData) return (
     <div className="page">
       <div className="page-title">Knockout Bracket</div>
       <div className="page-sub">Most likely bracket path based on champion probabilities</div>
       <div className="empty-msg">
         <Icons.Bracket size={40} color="var(--text3)" />
-        <div>Run a simulation to see the bracket</div>
+        <div>Simulation results will appear here</div>
       </div>
     </div>
   )
+
 
   const qf = [
     [likelyFirst('A'), likelySecond('B')],
@@ -105,24 +103,8 @@ export default function Bracket({ leagueId }) {
       <div className="page-title">Knockout Bracket</div>
       <div className="page-sub">{leagueNames[leagueId]} · Most likely bracket path based on simulation probabilities</div>
 
-      {runs.length > 0 && (
-        <div style={{ marginBottom: 24 }}>
-          <div className="control-group" style={{ display: 'inline-flex' }}>
-            <label className="control-label">Simulation Run</label>
-            <select value={runId ?? ''} onChange={e => {
-              const id = Number(e.target.value)
-              setRunId(id)
-              getProbabilities(id).then(setProbs)
-            }}>
-              {runs.map(r => (
-                <option key={r.id} value={r.id}>Run #{r.id} · {r.n_iterations.toLocaleString()} iterations</option>
-              ))}
-            </select>
-          </div>
-        </div>
-      )}
-
-      <div className="bracket-wrap" style={{ overflowX: 'auto', paddingBottom: 20 }}>
+      
+<div className="bracket-wrap" style={{ overflowX: 'auto', paddingBottom: 20 }}>
         {/* Quarter-finals */}
         <div className="bracket-round">
           <div className="bracket-round-label">Quarter-finals</div>

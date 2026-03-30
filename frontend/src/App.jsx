@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Routes, Route, NavLink } from 'react-router-dom'
 import { Icons } from './Icons'
+import { runSimulation, getProbabilities } from './api'
 import Simulate      from './pages/Simulate.jsx'
 import Groups        from './pages/Groups.jsx'
 import Bracket       from './pages/Bracket.jsx'
@@ -29,15 +30,52 @@ const NAV_GAMES = [
 ]
 
 export default function App() {
-  const [leagueId, setLeagueId] = useState(39)
-  const [points, setPoints]     = useState(() => parseInt(localStorage.getItem('points')) || 1000)
+  const [leagueId,    setLeagueId]    = useState(39)
+  const [simResults,  setSimResults]  = useState([])
+  const [simRunId,    setSimRunId]    = useState(null)
+  const [simLoading,  setSimLoading]  = useState(false)
+  const [points, setPoints] = useState(() => parseInt(localStorage.getItem('points')) || 1000)
 
   const updatePoints = (newPts) => {
     setPoints(newPts)
     localStorage.setItem('points', newPts)
   }
 
-  const shared = { leagueId, points, setPoints: updatePoints }
+  // Auto-run simulation when league changes
+  const autoSimulate = useCallback(async (lid) => {
+    setSimLoading(true)
+    setSimResults([])
+    try {
+      const { run_id } = await runSimulation(10000, lid)
+      const probs = await getProbabilities(run_id)
+      setSimRunId(run_id)
+      setSimResults(probs)
+    } catch (e) {
+      console.error('Auto-sim failed', e)
+    } finally {
+      setSimLoading(false)
+    }
+  }, [])
+
+  // Simulate on mount and on league switch
+  useEffect(() => {
+    autoSimulate(leagueId)
+  }, [leagueId])
+
+  const handleLeagueChange = (id) => {
+    if (id === leagueId) return
+    setLeagueId(id)
+  }
+
+  const shared = {
+    leagueId,
+    simResults,
+    simRunId,
+    simLoading,
+    onReSimulate: () => autoSimulate(leagueId),
+    points,
+    setPoints: updatePoints,
+  }
 
   return (
     <div className="layout">
@@ -84,6 +122,14 @@ export default function App() {
             </div>
           </div>
 
+          {/* Sim loading indicator */}
+          {simLoading && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: 'rgba(0,230,118,0.08)', border: '1px solid rgba(0,230,118,0.2)', borderRadius: 10, marginBottom: 8, fontSize: 11, color: 'var(--green)' }}>
+              <span className="spinner-ring" style={{ width: 14, height: 14, borderWidth: 2 }} />
+              Running simulation…
+            </div>
+          )}
+
           {/* League */}
           <div className="league-picker-label">Active League</div>
           <div className="league-picker">
@@ -91,7 +137,8 @@ export default function App() {
               <button
                 key={lg.id}
                 className={`league-btn ${leagueId === lg.id ? 'active' : ''}`}
-                onClick={() => setLeagueId(lg.id)}
+                onClick={() => handleLeagueChange(lg.id)}
+                disabled={simLoading}
               >
                 <img
                   src={`https://flagcdn.com/20x15/${lg.flagCode}.png`}
