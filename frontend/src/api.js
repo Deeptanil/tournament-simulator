@@ -13,6 +13,7 @@ export const getNextPlayer        = (exclude_id) => axios.get(`${B}/players/rand
 export const getHighScores        = (game_type) => axios.get(`${B}/highscores`, { params: { game_type } }).then(r => r.data)
 export const postHighScore        = (game_type, score) => axios.post(`${B}/highscores`, { game_type, score }).then(r => r.data)
 export const getTeamStats         = (team, league_id) => axios.get(`${B}/team_stats`, { params: { team, league_id } }).then(r => r.data)
+export const getSeasons           = () => axios.get(`${B}/seasons`).then(r => r.data)
 
 export const teamLogoUrl = (teamId) =>
   teamId ? `https://media.api-sports.io/football/teams/${teamId}.png` : null

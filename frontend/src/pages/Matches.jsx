@@ -1,6 +1,14 @@
 import { useState, useEffect } from 'react'
-import { getTeams, getMatches, teamLogoUrl } from '../api'
+import { getTeams, getMatches, teamLogoUrl, getSeasons } from '../api'
 import { Icons } from '../Icons'
+
+const LEAGUE_NAMES = {
+  39: 'Premier League',
+  140: 'La Liga',
+  135: 'Serie A',
+  78: 'Bundesliga',
+  61: 'Ligue 1'
+}
 
 const outcomeColor = (o) =>
   o === 'Home Win' ? 'var(--blue)' : o === 'Away Win' ? 'var(--amber)' : 'var(--text3)'
@@ -8,16 +16,20 @@ const outcomeColor = (o) =>
 export default function Matches({ leagueId }) {
   const [matches, setMatches]   = useState([])
   const [teams, setTeams]       = useState([])
+  const [seasons, setSeasons]   = useState([])
   const [filters, setFilters]   = useState({ team: '', season: '', outcome: '' })
   const [loading, setLoading]   = useState(false)
   const [expanded, setExpanded] = useState(null)
 
-  // Reset when league changes
+  // Reset/Load teams when league changes
   useEffect(() => {
     getTeams(leagueId).then(setTeams)
     setMatches([])
     setExpanded(null)
     setFilters({ team: '', season: '', outcome: '' })
+    
+    // Fetch seasons only once or when league-independent data is needed
+    getSeasons().then(setSeasons).catch(() => {})
   }, [leagueId])
 
   useEffect(() => {
@@ -32,15 +44,13 @@ export default function Matches({ leagueId }) {
       .catch(() => setLoading(false))
   }, [filters, leagueId])
 
-  const teamData = (name) => teams.find(t => t.team_name === name)
-  const logo     = (name) => teamLogoUrl(teamData(name)?.team_id)
-
-  const leagueNames = { 39: 'Premier League', 140: 'La Liga', 135: 'Serie A' }
+  const teamData = (name) => teams.find(t => t.team_name === name) || {}
+  const logo     = (name) => teamLogoUrl(teamData(name).team_id)
 
   return (
     <div className="page">
       <div className="page-title">Historical Matches</div>
-      <div className="page-sub">{leagueNames[leagueId]} · {matches.length} matches · Click a row to see details</div>
+      <div className="page-sub">{LEAGUE_NAMES[leagueId]} · {matches.length} matches · 1993–2026 Archive</div>
 
       {/* Filters */}
       <div className="card card-pad" style={{ marginBottom: 20 }}>
@@ -56,8 +66,9 @@ export default function Matches({ leagueId }) {
             <label className="control-label">Season</label>
             <select value={filters.season} onChange={e => setFilters(f => ({ ...f, season: e.target.value }))}>
               <option value="">All seasons</option>
-              <option value="2022">2022–23</option>
-              <option value="2023">2023–24</option>
+              {seasons.map(s => (
+                <option key={s} value={s}>{s}/{String(Number(s) + 1).slice(-2)}</option>
+              ))}
             </select>
           </div>
           <div className="control-group">
@@ -78,16 +89,15 @@ export default function Matches({ leagueId }) {
       {/* Match List */}
       <div className="card" style={{ overflow: 'hidden' }}>
         {loading ? (
-          <div className="empty-msg"><span className="spinner-ring" /><span>Loading…</span></div>
+          <div className="empty-msg"><span className="spinner-ring" /><span>Loading match history…</span></div>
         ) : matches.length === 0 ? (
           <div style={{ padding: 48, textAlign: 'center' }}>
             <Icons.Calendar size={44} color="var(--text3)" style={{ margin: '0 auto 16px' }} />
             <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text2)', marginBottom: 8 }}>
-              No historical match data for {leagueNames[leagueId]}
+              No matches found for these filters
             </div>
             <div style={{ fontSize: 13, color: 'var(--text3)', maxWidth: 320, margin: '0 auto' }}>
-              Our database currently contains Premier League (2022–24) match records.
-              {leagueId !== 39 && ' Switch to Premier League to browse real historical matches, or use Match Bet for simulated fixtures.'}
+              We have match data for {LEAGUE_NAMES[leagueId]} from 1993 up to currently ongoing seasons.
             </div>
           </div>
         ) : (
@@ -102,7 +112,6 @@ export default function Matches({ leagueId }) {
 
             return (
               <div key={i}>
-                {/* Row */}
                 <div
                   onClick={() => setExpanded(isOpen ? null : i)}
                   style={{
@@ -122,7 +131,6 @@ export default function Matches({ leagueId }) {
                     {new Date(m.match_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })}
                   </span>
 
-                  {/* Home team */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
                     <span style={{
                       fontWeight: homeWin ? 700 : 400,
@@ -136,7 +144,6 @@ export default function Matches({ leagueId }) {
                     {homeLogo && <img src={homeLogo} alt="" style={{ width: 22, height: 22, objectFit: 'contain', flexShrink: 0 }} />}
                   </div>
 
-                  {/* Score */}
                   <div style={{
                     textAlign: 'center', fontSize: 17, fontWeight: 900,
                     letterSpacing: 2, paddingInline: 10,
@@ -147,7 +154,6 @@ export default function Matches({ leagueId }) {
                     <span style={{ color: awayWin ? 'var(--green)' : 'inherit' }}>{m.away_goals}</span>
                   </div>
 
-                  {/* Away team */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     {awayLogo && <img src={awayLogo} alt="" style={{ width: 22, height: 22, objectFit: 'contain', flexShrink: 0 }} />}
                     <span style={{
@@ -161,7 +167,6 @@ export default function Matches({ leagueId }) {
                     </span>
                   </div>
 
-                  {/* Result badge */}
                   <div style={{ textAlign: 'right' }}>
                     <span style={{
                       fontSize: 10, fontWeight: 700, color: oColor,
@@ -169,24 +174,21 @@ export default function Matches({ leagueId }) {
                       borderRadius: 20, border: `1px solid ${oColor}30`,
                       display: 'inline-block',
                     }}>
-                      {isDraw ? 'Draw' : homeWin ? 'H' : 'A'}
+                      {isDraw ? 'Draw' : homeWin ? 'Home' : 'Away'}
                     </span>
                   </div>
 
-                  {/* Expand arrow */}
                   <div style={{ color: 'var(--text3)', display: 'flex', justifyContent: 'flex-end', transition: 'transform 0.2s', transform: isOpen ? 'rotate(180deg)' : 'none' }}>
                     <Icons.ChevronDown size={14} />
                   </div>
                 </div>
 
-                {/* Expanded detail */}
                 {isOpen && (
                   <div className="animate-in" style={{
                     padding: '20px 24px', borderBottom: '1px solid var(--border)',
                     background: 'rgba(255,255,255,0.02)',
                     display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 20,
                   }}>
-                    {/* Home */}
                     <div style={{ textAlign: 'center' }}>
                       {homeLogo && <img src={homeLogo} alt="" style={{ width: 40, height: 40, objectFit: 'contain', marginBottom: 8 }} />}
                       <div style={{ fontWeight: 700, color: homeWin ? 'var(--green)' : 'var(--text2)', fontSize: 14 }}>{m.home_team}</div>
@@ -194,7 +196,6 @@ export default function Matches({ leagueId }) {
                       {homeWin && <div style={{ margin: '8px auto', fontWeight: 700, fontSize: 11, color: 'var(--green)' }}>Winner</div>}
                     </div>
 
-                    {/* Center stats */}
                     <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 8, justifyContent: 'center' }}>
                       <div style={{ fontSize: 36, fontWeight: 900, letterSpacing: 4 }}>
                         <span style={{ color: homeWin ? 'var(--green)' : 'var(--text)' }}>{m.home_goals}</span>
@@ -202,10 +203,9 @@ export default function Matches({ leagueId }) {
                         <span style={{ color: awayWin ? 'var(--green)' : 'var(--text)' }}>{m.away_goals}</span>
                       </div>
                       <span style={{ color: oColor, fontWeight: 700, fontSize: 12 }}>{m.outcome}</span>
-                      <span style={{ color: 'var(--text3)', fontSize: 11 }}>Season {m.season}/{Number(m.season) + 1}</span>
+                      <span style={{ color: 'var(--text3)', fontSize: 11 }}>Season {m.season}/{String(Number(m.season) + 1).slice(-2)}</span>
                     </div>
 
-                    {/* Away */}
                     <div style={{ textAlign: 'center' }}>
                       {awayLogo && <img src={awayLogo} alt="" style={{ width: 40, height: 40, objectFit: 'contain', marginBottom: 8 }} />}
                       <div style={{ fontWeight: 700, color: awayWin ? 'var(--green)' : 'var(--text2)', fontSize: 14 }}>{m.away_team}</div>

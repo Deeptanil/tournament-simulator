@@ -49,7 +49,7 @@ export default function Simulate({ leagueId, simResults, simLoading, onReSimulat
     { key: 'p_champion',  label: 'Champion' },
   ]
 
-  const leagueNames = { 39: 'Premier League', 140: 'La Liga', 135: 'Serie A' }
+  const leagueNames = { 39: 'Premier League', 140: 'La Liga', 135: 'Serie A', 78: 'Bundesliga', 61: 'Ligue 1' }
 
   return (
     <div className="page">

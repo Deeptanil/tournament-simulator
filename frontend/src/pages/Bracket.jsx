@@ -96,7 +96,7 @@ export default function Bracket({ leagueId, simResults, simLoading }) {
   const f2 = (byName(sfTeams[2])?.p_champion || 0) >= (byName(sfTeams[3])?.p_champion || 0) ? sfTeams[2] : sfTeams[3]
   const finalWinner = (byName(f1)?.p_champion || 0) >= (byName(f2)?.p_champion || 0) ? f1 : f2
 
-  const leagueNames = { 39: 'Premier League', 140: 'La Liga', 135: 'Serie A' }
+  const leagueNames = { 39: 'Premier League', 140: 'La Liga', 135: 'Serie A', 78: 'Bundesliga', 61: 'Ligue 1' }
 
   return (
     <div className="page">

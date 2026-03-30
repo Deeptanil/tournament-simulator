@@ -188,6 +188,13 @@ def get_matches():
         return jsonify([dict(r) for r in rows])
 
 
+@app.route("/api/seasons")
+def get_seasons():
+    with engine.connect() as conn:
+        rows = conn.execute(text("SELECT DISTINCT season FROM matches ORDER BY season DESC")).fetchall()
+        return jsonify([r[0] for r in rows])
+
+
 @app.route("/api/simulate_match", methods=["POST"])
 def simulate_single_match():
     home      = request.json.get("home")
