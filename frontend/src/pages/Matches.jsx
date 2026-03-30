@@ -10,23 +10,27 @@ export default function Matches({ leagueId }) {
   const [teams, setTeams]       = useState([])
   const [filters, setFilters]   = useState({ team: '', season: '', outcome: '' })
   const [loading, setLoading]   = useState(false)
-  const [expanded, setExpanded] = useState(null)  // index of expanded match
+  const [expanded, setExpanded] = useState(null)
 
+  // Reset when league changes
   useEffect(() => {
     getTeams(leagueId).then(setTeams)
+    setMatches([])
+    setExpanded(null)
+    setFilters({ team: '', season: '', outcome: '' })
   }, [leagueId])
 
   useEffect(() => {
     setLoading(true)
     setExpanded(null)
-    const params = {}
+    const params = { league_id: leagueId }
     if (filters.team)    params.team    = filters.team
     if (filters.season)  params.season  = filters.season
     if (filters.outcome) params.outcome = filters.outcome
     getMatches(params)
       .then(data => { setMatches(data); setLoading(false) })
       .catch(() => setLoading(false))
-  }, [filters])
+  }, [filters, leagueId])
 
   const teamData = (name) => teams.find(t => t.team_name === name)
   const logo     = (name) => teamLogoUrl(teamData(name)?.team_id)
@@ -76,9 +80,15 @@ export default function Matches({ leagueId }) {
         {loading ? (
           <div className="empty-msg"><span className="spinner-ring" /><span>Loading…</span></div>
         ) : matches.length === 0 ? (
-          <div className="empty-msg">
-            <Icons.Calendar size={40} color="var(--text3)" />
-            <div>No matches found</div>
+          <div style={{ padding: 48, textAlign: 'center' }}>
+            <Icons.Calendar size={44} color="var(--text3)" style={{ margin: '0 auto 16px' }} />
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text2)', marginBottom: 8 }}>
+              No historical match data for {leagueNames[leagueId]}
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text3)', maxWidth: 320, margin: '0 auto' }}>
+              Our database currently contains Premier League (2022–24) match records.
+              {leagueId !== 39 && ' Switch to Premier League to browse real historical matches, or use Match Bet for simulated fixtures.'}
+            </div>
           </div>
         ) : (
           matches.map((m, i) => {

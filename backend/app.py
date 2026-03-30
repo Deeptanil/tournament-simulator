@@ -6,6 +6,7 @@ from simulator import (
     run_simulation, load_elo, sim_match_score,
     get_league_groups, get_league_elo, LEAGUE_TEAMS
 )
+from team_ids import TEAM_IDS
 
 app = Flask(__name__)
 CORS(app)
@@ -20,32 +21,38 @@ def home():
 def get_teams():
     league_id = request.args.get("league_id", type=int)
 
-    # Build the team list from our curated league data first
     base = LEAGUE_TEAMS.get(league_id, LEAGUE_TEAMS[39])
 
-    # Enrich with DB metadata (venue, country, founded, logo id) where available
+    # Enrich with DB metadata where available (venue, country, founded)
     with engine.connect() as conn:
-        db_rows = conn.execute(text(
-            "SELECT team_id, team_name, venue_name, venue_city, country, founded FROM teams"
-        )).fetchall()
-        elo_rows = conn.execute(text(
-            "SELECT team_name, elo_rating FROM elo_ratings"
-        )).fetchall()
+        try:
+            db_rows  = conn.execute(text(
+                "SELECT team_id, team_name, venue_name, venue_city, country, founded FROM teams"
+            )).fetchall()
+            elo_rows = conn.execute(text(
+                "SELECT team_name, elo_rating FROM elo_ratings"
+            )).fetchall()
+        except Exception:
+            db_rows, elo_rows = [], []
 
     db_map  = {r[1]: r for r in db_rows}
     elo_map = {r[0]: r[1] for r in elo_rows}
 
     result = []
     for team_name, base_elo in sorted(base.items(), key=lambda x: x[1], reverse=True):
-        db = db_map.get(team_name)
+        db     = db_map.get(team_name)
+        # Prefer DB-computed Elo, fall back to curated estimate
+        real_elo = elo_map.get(team_name, base_elo)
+        # Prefer DB team_id, fall back to our TEAM_IDS mapping
+        team_id  = (db[0] if db else None) or TEAM_IDS.get(team_name)
         result.append({
-            "team_id":    db[0] if db else None,
+            "team_id":    team_id,
             "team_name":  team_name,
             "venue_name": db[2] if db else None,
             "venue_city": db[3] if db else None,
             "country":    db[4] if db else None,
             "founded":    db[5] if db else None,
-            "elo_rating": round(elo_map.get(team_name, base_elo), 1),
+            "elo_rating": round(real_elo, 1),
         })
     return jsonify(result)
 
@@ -55,18 +62,18 @@ def get_groups(league_id):
     groups_dict = get_league_groups(league_id)
     league_elo  = get_league_elo(league_id)
 
-    # Enrich with team_id from DB
     with engine.connect() as conn:
-        db_rows = conn.execute(text(
-            "SELECT team_name, team_id FROM teams"
-        )).fetchall()
-    tid_map = {r[0]: r[1] for r in db_rows}
+        try:
+            db_rows = conn.execute(text("SELECT team_name, team_id FROM teams")).fetchall()
+        except Exception:
+            db_rows = []
+    db_tid = {r[0]: r[1] for r in db_rows}
 
     result = {}
     for gname, team_names in groups_dict.items():
         result[gname] = [{
             "team_name":  t,
-            "team_id":    tid_map.get(t),
+            "team_id":    db_tid.get(t) or TEAM_IDS.get(t),
             "elo_rating": round(league_elo.get(t, 1500), 1),
         } for t in team_names]
     return jsonify(result)
@@ -149,15 +156,25 @@ def get_runs():
 
 @app.route("/api/matches")
 def get_matches():
-    team    = request.args.get("team")
-    season  = request.args.get("season")
-    outcome = request.args.get("outcome")
+    team      = request.args.get("team")
+    season    = request.args.get("season")
+    outcome   = request.args.get("outcome")
+    league_id = request.args.get("league_id", type=int)
 
     query  = "SELECT match_date, home_team, away_team, home_goals, away_goals, outcome, season FROM matches WHERE 1=1"
     params = {}
+
     if team:
         query += " AND (home_team = :team OR away_team = :team)"
         params["team"] = team
+    elif league_id and league_id in LEAGUE_TEAMS:
+        # Filter to only matches involving teams from this league
+        team_list = list(LEAGUE_TEAMS[league_id].keys())
+        placeholders = ",".join(f":t{i}" for i in range(len(team_list)))
+        query += f" AND (home_team IN ({placeholders}) OR away_team IN ({placeholders}))"
+        for i, t in enumerate(team_list):
+            params[f"t{i}"] = t
+
     if season:
         query += " AND season = :season"
         params["season"] = int(season)
@@ -205,7 +222,6 @@ def random_player_pair():
             rows = conn.execute(text(
                 "SELECT id, name, team_name, transfer_value, image_url FROM players ORDER BY RANDOM() LIMIT 2"
             )).fetchall()
-            # Retry once if same id returned
             if rows[0][0] == rows[1][0]:
                 rows = conn.execute(text(
                     "SELECT id, name, team_name, transfer_value, image_url FROM players ORDER BY RANDOM() LIMIT 2"
