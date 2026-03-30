@@ -146,7 +146,7 @@ export default function MatchesBetting({ leagueId, points, setPoints }) {
     setPhase('loading')
 
     try {
-      const data = await simulateMatch(home.team_name, away.team_name)
+      const data = await simulateMatch(home.team_name, away.team_name, leagueId)
 
       const actualH  = data.home_goals
       const actualA  = data.away_goals
@@ -308,4 +308,77 @@ export default function MatchesBetting({ leagueId, points, setPoints }) {
               <div style={{ fontWeight: 700, fontSize: 13, color: result.correct ? 'var(--green)' : 'var(--red)', marginBottom: 4 }}>
                 {result.tag}
               </div>
-          
+              <div style={{ fontSize: 22, fontWeight: 900, color: result.gain > 0 ? 'var(--green)' : 'var(--red)', marginBottom: 14 }}>
+                {result.gain > 0 ? '+' : ''}{result.gain} pts
+              </div>
+
+              {/* Strength bar — revealed after guess */}
+              {result.homeElo && result.awayElo && (
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--text3)', marginBottom: 4, fontWeight: 600 }}>
+                    <span>Home strength</span>
+                    <span>Away strength</span>
+                  </div>
+                  <div style={{ height: 6, background: 'var(--bg5)', borderRadius: 3, overflow: 'hidden', display: 'flex' }}>
+                    {(() => {
+                      const total = result.homeElo + result.awayElo
+                      const hp = Math.round((result.homeElo / total) * 100)
+                      return (
+                        <>
+                          <div style={{ width: `${hp}%`, background: 'var(--blue)' }} />
+                          <div style={{ flex: 1, background: 'var(--amber)' }} />
+                        </>
+                      )
+                    })()}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginTop: 4 }}>
+                    <span style={{ color: 'var(--blue)', fontWeight: 700 }}>Elo {result.homeElo}</span>
+                    <span style={{ color: 'var(--amber)', fontWeight: 700 }}>Elo {result.awayElo}</span>
+                  </div>
+                </div>
+              )}
+
+              <button onClick={nextMatch} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>
+                <Icons.Refresh size={14} />
+                Next Match
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* AWAY */}
+        <TeamCard
+          team={away}
+          score={guessA}
+          onScore={setGuessA}
+          color="var(--amber)"
+          label="Away  →  Home next"
+          revealed={revealed}
+          eloRating={result?.awayElo}
+          disabled={!playing}
+        />
+      </div>
+
+      {/* History */}
+      {history.length > 0 && (
+        <div className="card">
+          <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', fontWeight: 700, fontSize: 13 }}>Recent Bets</div>
+          {history.map((h, i) => (
+            <div key={i} style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 16, justifyContent: 'space-between', fontSize: 13 }}>
+              <div style={{ flex: 1 }}>
+                <span style={{ fontWeight: 600 }}>{h.home}</span>
+                <span style={{ color:'var(--text3)', marginInline:6 }}>{h.score}</span>
+                <span style={{ fontWeight: 600 }}>{h.away}</span>
+                <span style={{ color:'var(--text3)', marginLeft:8, fontSize:11 }}>· Guess: {h.guess}</span>
+                {h.exact && <span className="badge badge-purple" style={{ marginLeft:8, fontSize:10 }}>Exact!</span>}
+              </div>
+              <span style={{ fontWeight:700, color: h.gain > 0 ? 'var(--green)' : 'var(--red)', flexShrink:0 }}>
+                {h.gain > 0 ? '+' : ''}{h.gain}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
