@@ -1,8 +1,8 @@
-# api-sports.io team IDs for each league
-# These IDs map to: https://media.api-sports.io/football/teams/{id}.png
+# api-sports.io team IDs → logo URL: https://media.api-sports.io/football/teams/{id}.png
+# Covers all 5 leagues supported by the simulator
 
 TEAM_IDS = {
-    # Premier League (39)
+    # ── Premier League (39) ────────────────────────────────────────────────
     "Manchester City":     50,
     "Arsenal":             42,
     "Liverpool":           40,
@@ -21,10 +21,17 @@ TEAM_IDS = {
     "Nottingham Forest":   65,
     "Burnley":             44,
     "Sheffield United":    62,
-    "Luton":              1359,
+    "Luton":             1359,
     "Bournemouth":         35,
+    "Ipswich":             57,
+    "Leicester":           46,
+    "Southampton":         41,
+    "Leeds":               63,
+    "Watford":             38,
+    "Norwich":             71,
+    "West Brom":           60,
 
-    # La Liga (140)
+    # ── La Liga (140) ──────────────────────────────────────────────────────
     "Real Madrid":        541,
     "Barcelona":          529,
     "Atletico Madrid":    530,
@@ -43,8 +50,14 @@ TEAM_IDS = {
     "Cadiz":              724,
     "Alaves":             720,
     "Las Palmas":         737,
+    "Espanol":            540,
+    "Valladolid":         720,
+    "Levante":            544,
+    "Zaragoza":           550,
+    "Malaga":             534,
+    "Deportivo":          719,
 
-    # Serie A (135)
+    # ── Serie A (135) ──────────────────────────────────────────────────────
     "Inter":              505,
     "Juventus":           496,
     "AC Milan":           489,
@@ -63,22 +76,58 @@ TEAM_IDS = {
     "Frosinone":          512,
     "Verona":             504,
     "Sassuolo":           508,
+    "Sampdoria":          507,
+    "Cagliari":           490,
+    "Genoa":              495,
+    "Parma":              498,
+    "Spezia":            4528,
+    "Cremonese":          519,
+    "Venezia":            517,
+    "Brescia":            516,
 
-    # Bundesliga (78)
+    # ── Bundesliga (78) ────────────────────────────────────────────────────
     "Bayern Munich":       157,
     "Borussia Dortmund":   165,
     "RB Leipzig":          173,
     "Bayer Leverkusen":    168,
     "Eintracht Frankfurt": 169,
+    "Stuttgart":           172,
     "Wolfsburg":           161,
-    "Borussia Monchengladbach": 163,
+    "Borussia M'gladbach": 163,
     "Union Berlin":        182,
+    "Freiburg":            160,
+    "Augsburg":            170,
+    "Hoffenheim":          175,
+    "Mainz":               164,
+    "Werder Bremen":       162,
+    "Heidenheim":          180,
+    "Darmstadt":           176,
+    "Schalke 04":          167,
+    "Hamburg":             180,
+    "Hertha Berlin":       159,
+    "FC Cologne":          192,
+    "Bielefeld":           183,
+    "Paderborn":           181,
 
-    # Ligue 1 (61)
-    "PSG":                85,
-    "Monaco":              91,
-    "Marseille":           81,
-    "Lyon":                80,
-    "Lille":               79,
-    "Nice":                84,
+    # ── Ligue 1 (61) ───────────────────────────────────────────────────────
+    "PSG":                  85,
+    "Monaco":               91,
+    "Marseille":            81,
+    "Lyon":                 80,
+    "Lille":                79,
+    "Nice":                 84,
+    "Rennes":               111,
+    "Lens":                 116,
+    "Nantes":               83,
+    "Montpellier":          82,
+    "Strasbourg":           95,
+    "Reims":                93,
+    "Toulouse":             96,
+    "Brest":                113,
+    "Lorient":              112,
+    "Angers":               115,
+    "St Etienne":           97,
+    "Bordeaux":             77,
+    "Auxerre":              109,
+    "Metz":                 88,
 }

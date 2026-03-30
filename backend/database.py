@@ -94,6 +94,14 @@ def init_db():
                 image_url VARCHAR(255)
             )
         """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS high_scores (
+                id SERIAL PRIMARY KEY,
+                game_type VARCHAR(30) NOT NULL,
+                score INTEGER NOT NULL,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        """))
         conn.commit()
     print("All tables created successfully.")
 

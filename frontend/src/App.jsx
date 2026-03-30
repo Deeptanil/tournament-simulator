@@ -13,8 +13,10 @@ import './App.css'
 
 const LEAGUES = [
   { id: 39,  name: 'Premier League', country: 'England', flagCode: 'gb-eng' },
-  { id: 140, name: 'La Liga',        country: 'Spain',   flagCode: 'es' },
-  { id: 135, name: 'Serie A',        country: 'Italy',   flagCode: 'it' },
+  { id: 140, name: 'La Liga',        country: 'Spain',   flagCode: 'es'     },
+  { id: 135, name: 'Serie A',        country: 'Italy',   flagCode: 'it'     },
+  { id: 78,  name: 'Bundesliga',     country: 'Germany', flagCode: 'de'     },
+  { id: 61,  name: 'Ligue 1',        country: 'France',  flagCode: 'fr'     },
 ]
 
 const NAV_MAIN = [

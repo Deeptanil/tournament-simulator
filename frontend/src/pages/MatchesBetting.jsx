@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { getTeams, simulateMatch, teamLogoUrl } from '../api'
+import { getTeams, simulateMatch, teamLogoUrl, getHighScores, postHighScore } from '../api'
 import { Icons } from '../Icons'
 
 /* ── Helpers ───────────────────────────────────────────────────────────────── */
@@ -111,6 +111,33 @@ function TeamCard({ team, score, onScore, color, label, revealed, eloRating, dis
   )
 }
 
+/* ── High Score Panel ─────────────────────────────────────────────────────── */
+function HighScorePanel({ show, onClose, scores, current }) {
+  if (!show) return null
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(8,11,20,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+      <div style={{ background: 'var(--bg2)', border: '1px solid var(--border2)', borderRadius: 24, padding: '36px 40px', minWidth: 360, maxWidth: 440, boxShadow: '0 40px 80px rgba(0,0,0,0.6)' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+          <Icons.Trophy size={28} color="var(--amber)" />
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 18 }}>Leaderboard</div>
+            <div style={{ fontSize: 12, color: 'var(--text3)' }}>Match Bet — Best Streaks</div>
+          </div>
+        </div>
+        {scores.length === 0 && <div style={{ color: 'var(--text3)', textAlign: 'center', padding: 20 }}>No scores yet!</div>}
+        {scores.map((s, i) => (
+          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderRadius: 10, marginBottom: 6, background: i === 0 ? 'rgba(255,180,0,0.1)' : 'var(--bg3)', border: `1px solid ${i === 0 ? 'rgba(255,180,0,0.25)' : 'var(--border)'}` }}>
+            <span style={{ fontWeight: 800, color: i === 0 ? 'var(--amber)' : 'var(--text3)', minWidth: 24 }}>{i === 0 ? '🏆' : `#${i+1}`}</span>
+            <span style={{ fontWeight: 800, fontSize: 18, color: i === 0 ? 'var(--amber)' : 'var(--text)' }}>{s.score}</span>
+          </div>
+        ))}
+        {current > 0 && <div style={{ marginTop: 16, padding: '12px 14px', borderRadius: 10, background: 'rgba(0,230,118,0.08)', border: '1px solid rgba(0,230,118,0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><span style={{ color: 'var(--green)', fontWeight: 700 }}>Your Best</span><span style={{ color: 'var(--green)', fontWeight: 800, fontSize: 18 }}>{current}</span></div>}
+        <button onClick={onClose} className="btn btn-primary" style={{ width: '100%', marginTop: 20 }}>Close</button>
+      </div>
+    </div>
+  )
+}
+
 /* ── Main component ──────────────────────────────────────────────────────────── */
 export default function MatchesBetting({ leagueId, points, setPoints }) {
   const [teams,      setTeams]      = useState([])
@@ -122,7 +149,25 @@ export default function MatchesBetting({ leagueId, points, setPoints }) {
   const [result,     setResult]     = useState(null)
   const [history,    setHistory]    = useState([])
   const [streak,     setStreak]     = useState(0)
+  const [bestStreak, setBestStreak] = useState(() => parseInt(localStorage.getItem('mb_best') || '0'))
+  const [showLD,     setShowLD]     = useState(false)
+  const [hsScores,   setHsScores]   = useState([])
   const simulating = useRef(false)
+
+  const loadScores = useCallback(() => {
+    getHighScores('match_bet').then(setHsScores).catch(() => {})
+  }, [])
+
+  useEffect(() => { loadScores() }, [])
+
+  const updateBest = useCallback((s) => {
+    if (s > bestStreak) {
+      setBestStreak(s)
+      localStorage.setItem('mb_best', s)
+      postHighScore('match_bet', s).then(loadScores)
+    }
+  }, [bestStreak, loadScores])
+
 
   // Load teams and pick initial pair
   const loadTeams = useCallback((id) => {
@@ -167,6 +212,8 @@ export default function MatchesBetting({ leagueId, points, setPoints }) {
 
       const newStreak = correct ? streak + 1 : 0
       setStreak(newStreak)
+      if (!correct) updateBest(streak)
+      else updateBest(newStreak)
       setPoints(Math.max(0, points + gain))
       setResult({ ...data, tag, gain, exact, correct, guessH, guessA, homeElo: data.home_elo, awayElo: data.away_elo })
       setPhase('reveal')
@@ -194,7 +241,7 @@ export default function MatchesBetting({ leagueId, points, setPoints }) {
     setPhase('playing')
   }
 
-  const leagueNames = { 39: 'Premier League', 140: 'La Liga', 135: 'Serie A' }
+  const leagueNames = { 39: 'Premier League', 140: 'La Liga', 135: 'Serie A', 78: 'Bundesliga', 61: 'Ligue 1' }
   const revealed = phase === 'reveal'
   const playing  = phase === 'playing'
 
@@ -206,22 +253,37 @@ export default function MatchesBetting({ leagueId, points, setPoints }) {
   )
 
   return (
-    <div style={{ padding: '28px 32px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <>
+      <HighScorePanel show={showLD} onClose={() => setShowLD(false)} scores={hsScores} current={bestStreak} />
+      <div style={{ padding: '28px 32px', display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
           <div className="page-title">Match Bet</div>
           <div className="page-sub">{leagueNames[leagueId]} · Guess the score · Exact score = triple points!</div>
         </div>
-        {streak >= 2 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,167,38,0.1)', border: '1px solid rgba(255,167,38,0.3)', borderRadius: 12, padding: '10px 18px' }}>
-            <Icons.Flame size={18} color="var(--amber)" />
-            <div>
-              <div style={{ fontSize: 9, color: 'var(--amber)', fontWeight: 700, textTransform: 'uppercase' }}>Streak</div>
-              <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--amber)', lineHeight: 1 }}>{streak}</div>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          {bestStreak > 0 && (
+            <div style={{ background: 'rgba(255,180,0,0.1)', border: '1px solid rgba(255,180,0,0.25)', borderRadius: 12, padding: '8px 14px', textAlign: 'center' }}>
+              <div style={{ fontSize: 9, color: 'var(--amber)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Best</div>
+              <div style={{ fontSize: 20, fontWeight: 900, color: 'var(--amber)', lineHeight: 1 }}>{bestStreak}</div>
             </div>
-          </div>
-        )}
+          )}
+          <button onClick={() => { loadScores(); setShowLD(true) }}
+            style={{ background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 12, padding: '8px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, color: 'var(--amber)', fontWeight: 700, fontSize: 12 }}>
+            <Icons.Trophy size={16} color="var(--amber)" />
+            Leaderboard
+          </button>
+          {streak >= 2 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,167,38,0.1)', border: '1px solid rgba(255,167,38,0.3)', borderRadius: 12, padding: '10px 18px' }}>
+              <Icons.Flame size={18} color="var(--amber)" />
+              <div>
+                <div style={{ fontSize: 9, color: 'var(--amber)', fontWeight: 700, textTransform: 'uppercase' }}>Streak</div>
+                <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--amber)', lineHeight: 1 }}>{streak}</div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Points legend */}
@@ -380,5 +442,6 @@ export default function MatchesBetting({ leagueId, points, setPoints }) {
         </div>
       )}
     </div>
+    </>
   )
 }
