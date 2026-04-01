@@ -3,8 +3,6 @@ import { Routes, Route, NavLink } from 'react-router-dom'
 import { Icons } from './Icons'
 import { runSimulation, getProbabilities } from './api'
 import Simulate      from './pages/Simulate.jsx'
-import Groups        from './pages/Groups.jsx'
-import Bracket       from './pages/Bracket.jsx'
 import Teams         from './pages/Teams.jsx'
 import Matches       from './pages/Matches.jsx'
 import MatchesBetting from './pages/MatchesBetting.jsx'
@@ -21,8 +19,6 @@ const LEAGUES = [
 
 const NAV_MAIN = [
   { to: '/simulate', label: 'Simulate',    Icon: Icons.Simulate },
-  { to: '/groups',   label: 'Groups',      Icon: Icons.Grid },
-  { to: '/bracket',  label: 'Bracket',     Icon: Icons.Bracket },
   { to: '/teams',    label: 'Teams',       Icon: Icons.Shield },
   { to: '/matches',  label: 'Matches',     Icon: Icons.Calendar },
 ]
@@ -163,8 +159,6 @@ export default function App() {
         <Routes>
           <Route path="/"          element={<Simulate    {...shared} />} />
           <Route path="/simulate"  element={<Simulate    {...shared} />} />
-          <Route path="/groups"    element={<Groups      {...shared} />} />
-          <Route path="/bracket"   element={<Bracket     {...shared} />} />
           <Route path="/teams"     element={<Teams       {...shared} />} />
           <Route path="/matches"   element={<Matches     {...shared} />} />
           <Route path="/betting"   element={<MatchesBetting {...shared} />} />

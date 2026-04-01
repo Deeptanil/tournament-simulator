@@ -218,20 +218,20 @@ def random_player_pair():
 
         if exclude_id is not None:
             row = conn.execute(text(
-                "SELECT id, name, team_name, transfer_value, image_url FROM players WHERE id != :eid ORDER BY RANDOM() LIMIT 1"
+                "SELECT id, name, team_name, transfer_value, image_url, height, foot, position, nationality FROM players WHERE id != :eid ORDER BY RANDOM() LIMIT 1"
             ), {"eid": exclude_id}).fetchone()
             if not row:
                 row = conn.execute(text(
-                    "SELECT id, name, team_name, transfer_value, image_url FROM players ORDER BY RANDOM() LIMIT 1"
+                    "SELECT id, name, team_name, transfer_value, image_url, height, foot, position, nationality FROM players ORDER BY RANDOM() LIMIT 1"
                 )).fetchone()
             return jsonify(dict(row._mapping))
         else:
             rows = conn.execute(text(
-                "SELECT id, name, team_name, transfer_value, image_url FROM players ORDER BY RANDOM() LIMIT 2"
+                "SELECT id, name, team_name, transfer_value, image_url, height, foot, position, nationality FROM players ORDER BY RANDOM() LIMIT 2"
             )).fetchall()
             if rows[0][0] == rows[1][0]:
                 rows = conn.execute(text(
-                    "SELECT id, name, team_name, transfer_value, image_url FROM players ORDER BY RANDOM() LIMIT 2"
+                    "SELECT id, name, team_name, transfer_value, image_url, height, foot, position, nationality FROM players ORDER BY RANDOM() LIMIT 2"
                 )).fetchall()
             return jsonify([dict(r._mapping) for r in rows])
 
@@ -273,22 +273,40 @@ def team_stats():
         lid_filter = " AND league_id = :lid" if league_id else ""
         if league_id:
             params["lid"] = league_id
-        home = conn.execute(text(
-            "SELECT COUNT(*) as g,"
-            " SUM(CASE WHEN outcome='Home Win' THEN 1 ELSE 0 END) as w,"
-            " SUM(CASE WHEN outcome='Draw'     THEN 1 ELSE 0 END) as d,"
-            " SUM(CASE WHEN outcome='Away Win' THEN 1 ELSE 0 END) as l,"
-            " SUM(home_goals) as gf, SUM(away_goals) as ga"
-            " FROM matches WHERE home_team=:team" + lid_filter
+        
+        # Historical Metadata
+        home_meta = conn.execute(text(
+            "SELECT total_wins, total_goals, avg_rank, matches_played FROM teams WHERE team_name = :team"
+        ), {"team": team}).mappings().one_or_none()
+        
+        historical = None
+        if home_meta and home_meta["total_wins"] is not None:
+            historical = {
+                "total_wins": int(home_meta["total_wins"]),
+                "total_goals": int(home_meta["total_goals"]),
+                "avg_rank": round(float(home_meta["avg_rank"] or 0), 2),
+                "all_time_games": int(home_meta["matches_played"] or 0)
+            }
+
+        # Current season/period stats from matches table
+        home = conn.execute(text("""
+            SELECT COUNT(*) as g,
+                   SUM(CASE WHEN outcome='Home Win' THEN 1 ELSE 0 END) as w,
+                   SUM(CASE WHEN outcome='Draw'     THEN 1 ELSE 0 END) as d,
+                   SUM(CASE WHEN outcome='Away Win' THEN 1 ELSE 0 END) as l,
+                   SUM(home_goals) as gf, SUM(away_goals) as ga
+            FROM matches WHERE home_team=:team""" + lid_filter
         ), params).mappings().one()
-        away = conn.execute(text(
-            "SELECT COUNT(*) as g,"
-            " SUM(CASE WHEN outcome='Away Win' THEN 1 ELSE 0 END) as w,"
-            " SUM(CASE WHEN outcome='Draw'     THEN 1 ELSE 0 END) as d,"
-            " SUM(CASE WHEN outcome='Home Win' THEN 1 ELSE 0 END) as l,"
-            " SUM(away_goals) as gf, SUM(home_goals) as ga"
-            " FROM matches WHERE away_team=:team" + lid_filter
+        
+        away = conn.execute(text("""
+            SELECT COUNT(*) as g,
+                   SUM(CASE WHEN outcome='Away Win' THEN 1 ELSE 0 END) as w,
+                   SUM(CASE WHEN outcome='Draw'     THEN 1 ELSE 0 END) as d,
+                   SUM(CASE WHEN outcome='Home Win' THEN 1 ELSE 0 END) as l,
+                   SUM(away_goals) as gf, SUM(home_goals) as ga
+            FROM matches WHERE away_team=:team""" + lid_filter
         ), params).mappings().one()
+
     def s(v): return int(v or 0)
     games = s(home["g"]) + s(away["g"])
     wins  = s(home["w"]) + s(away["w"])
@@ -296,78 +314,14 @@ def team_stats():
     losses= s(home["l"]) + s(away["l"])
     gf    = s(home["gf"])+ s(away["gf"])
     ga    = s(home["ga"])+ s(away["ga"])
+    
     return jsonify({
         "team": team, "played": games, "wins": wins, "draws": draws,
         "losses": losses, "gf": gf, "ga": ga, "gd": gf - ga,
         "win_pct": round(wins / games * 100, 1) if games else 0,
+        "historical": historical
     })
+
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
-@app.route('/api/highscores', methods=['GET'])
-def get_highscores():
-    game_type = request.args.get('game_type', 'higher_lower')
-    with engine.connect() as conn:
-        rows = conn.execute(text('''
-            SELECT score, created_at FROM high_scores
-            WHERE game_type = :gt
-            ORDER BY score DESC LIMIT 10
-        '''), {'gt': game_type}).mappings().all()
-    return jsonify([dict(r) for r in rows])
-
-
-@app.route('/api/highscores', methods=['POST'])
-def post_highscore():
-    game_type = request.json.get('game_type', 'higher_lower')
-    score     = request.json.get('score', 0)
-    if score <= 0:
-        return jsonify({'ok': False})
-    with engine.begin() as conn:
-        conn.execute(text('''
-            INSERT INTO high_scores (game_type, score) VALUES (:gt, :s)
-        '''), {'gt': game_type, 's': score})
-    return jsonify({'ok': True})
-
-
-@app.route('/api/team_stats')
-def team_stats():
-    team      = request.args.get('team')
-    league_id = request.args.get('league_id', type=int)
-    if not team:
-        return jsonify({'error': 'team required'}), 400
-    with engine.connect() as conn:
-        params = {'team': team}
-        lid_filter = ' AND league_id = :lid' if league_id else ''
-        if league_id:
-            params['lid'] = league_id
-        home = conn.execute(text(f'''
-            SELECT COUNT(*) as g,
-                   SUM(CASE WHEN outcome=''Home Win'' THEN 1 ELSE 0 END) as w,
-                   SUM(CASE WHEN outcome=''Draw''     THEN 1 ELSE 0 END) as d,
-                   SUM(CASE WHEN outcome=''Away Win'' THEN 1 ELSE 0 END) as l,
-                   SUM(home_goals) as gf, SUM(away_goals) as ga
-            FROM matches WHERE home_team=:team {lid_filter}
-        '''), params).mappings().one()
-        away = conn.execute(text(f'''
-            SELECT COUNT(*) as g,
-                   SUM(CASE WHEN outcome=''Away Win'' THEN 1 ELSE 0 END) as w,
-                   SUM(CASE WHEN outcome=''Draw''     THEN 1 ELSE 0 END) as d,
-                   SUM(CASE WHEN outcome=''Home Win'' THEN 1 ELSE 0 END) as l,
-                   SUM(away_goals) as gf, SUM(home_goals) as ga
-            FROM matches WHERE away_team=:team {lid_filter}
-        '''), params).mappings().one()
-    def s(v): return int(v or 0)
-    games = s(home['g']) + s(away['g'])
-    wins  = s(home['w']) + s(away['w'])
-    draws = s(home['d']) + s(away['d'])
-    losses= s(home['l']) + s(away['l'])
-    gf    = s(home['gf'])+ s(away['gf'])
-    ga    = s(home['ga'])+ s(away['ga'])
-    return jsonify({
-        'team': team, 'played': games, 'wins': wins, 'draws': draws,
-        'losses': losses, 'gf': gf, 'ga': ga, 'gd': gf - ga,
-        'win_pct': round(wins / games * 100, 1) if games else 0,
-    })
-
-
-if __name__ == '__main__':    app.run(debug=True, port=5000)

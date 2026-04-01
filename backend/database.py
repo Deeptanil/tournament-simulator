@@ -6,8 +6,23 @@ load_dotenv()
 
 engine = create_engine(os.getenv("DATABASE_URL"))
 
+def add_column_if_not_exists(conn, table, column, col_type):
+    """Safely adds a column to a table if it doesn't already exist."""
+    check_sql = text(f"""
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = :table AND column_name = :column
+    """)
+    res = conn.execute(check_sql, {"table": table, "column": column}).fetchone()
+    if not res:
+        print(f"Adding column {column} to {table}...")
+        conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"))
+        return True
+    return False
+
 def init_db():
-    with engine.connect() as conn:
+    # Use engine.begin() for automatic transaction management (commit on success)
+    with engine.begin() as conn:
+        # 1. Teams Table
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS teams (
                 id SERIAL PRIMARY KEY,
@@ -21,14 +36,15 @@ def init_db():
                 league_id INTEGER
             )
         """))
-        # Using a try-except or just executing ALTER to safely migrate existing table
-        try:
-            conn.execute(text("ALTER TABLE teams ADD COLUMN league_id INTEGER"))
-        except Exception:
-            conn.rollback() # If column already exists, transaction aborts, we rollback and continue
-        else:
-            conn.commit()
+        
+        # Safe migrations for Teams
+        add_column_if_not_exists(conn, "teams", "league_id",      "INTEGER")
+        add_column_if_not_exists(conn, "teams", "total_wins",     "INTEGER DEFAULT 0")
+        add_column_if_not_exists(conn, "teams", "total_goals",    "INTEGER DEFAULT 0")
+        add_column_if_not_exists(conn, "teams", "avg_rank",       "FLOAT DEFAULT 0.0")
+        add_column_if_not_exists(conn, "teams", "matches_played", "INTEGER DEFAULT 0")
 
+        # 2. Matches Table
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS matches (
                 id SERIAL PRIMARY KEY,
@@ -42,13 +58,9 @@ def init_db():
                 league_id INTEGER
             )
         """))
-        try:
-            conn.execute(text("ALTER TABLE matches ADD COLUMN league_id INTEGER"))
-        except Exception:
-            conn.rollback()
-        else:
-            conn.commit()
+        add_column_if_not_exists(conn, "matches", "league_id", "INTEGER")
 
+        # 3. Elo Table
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS elo_ratings (
                 id SERIAL PRIMARY KEY,
@@ -56,6 +68,26 @@ def init_db():
                 elo_rating FLOAT NOT NULL
             )
         """))
+
+        # 4. Players Table
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS players (
+                id SERIAL PRIMARY KEY,
+                player_id INTEGER UNIQUE,
+                name VARCHAR(150) NOT NULL,
+                team_name VARCHAR(100),
+                transfer_value FLOAT,
+                image_url VARCHAR(255)
+            )
+        """))
+        
+        # Safe migrations for Players
+        add_column_if_not_exists(conn, "players", "height",      "INTEGER")
+        add_column_if_not_exists(conn, "players", "foot",        "VARCHAR(20)")
+        add_column_if_not_exists(conn, "players", "position",    "VARCHAR(100)")
+        add_column_if_not_exists(conn, "players", "nationality", "VARCHAR(100)")
+
+        # 5. Utilities
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS simulation_runs (
                 id SERIAL PRIMARY KEY,
@@ -85,16 +117,6 @@ def init_db():
             )
         """))
         conn.execute(text("""
-            CREATE TABLE IF NOT EXISTS players (
-                id SERIAL PRIMARY KEY,
-                player_id INTEGER UNIQUE,
-                name VARCHAR(150) NOT NULL,
-                team_name VARCHAR(100),
-                transfer_value FLOAT,
-                image_url VARCHAR(255)
-            )
-        """))
-        conn.execute(text("""
             CREATE TABLE IF NOT EXISTS high_scores (
                 id SERIAL PRIMARY KEY,
                 game_type VARCHAR(30) NOT NULL,
@@ -102,8 +124,8 @@ def init_db():
                 created_at TIMESTAMP DEFAULT NOW()
             )
         """))
-        conn.commit()
-    print("All tables created successfully.")
+
+    print("Database schema verified and updated successfully.")
 
 if __name__ == "__main__":
-    init_db() 
+    init_db()

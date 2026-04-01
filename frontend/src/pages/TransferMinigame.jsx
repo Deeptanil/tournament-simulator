@@ -82,6 +82,7 @@ export default function TransferMinigame({ points, setPoints }) {
   const [message, setMessage] = useState('')
   const [showLD,  setShowLD]  = useState(false)
   const [scores,  setScores]  = useState([])
+  const [loadingNext, setLoadingNext] = useState(false)
 
   const fetching = useRef(false)
 
@@ -142,13 +143,16 @@ export default function TransferMinigame({ points, setPoints }) {
 
       setTimeout(async () => {
         setPhase('transitioning')
+        setLoadingNext(true)
         const newLeft  = right
         const newRight = queue[0] || null
         markSeen(newLeft.id)
         if (newRight) markSeen(newRight.id)
         setLeft(newLeft); setRight(newRight)
+        
         const upcoming = await fetchFresh(newRight?.id ?? newLeft.id)
         setQueue(upcoming ? [upcoming] : [])
+        setLoadingNext(false)
         setPhase('playing')
       }, 1500)
 
@@ -161,12 +165,14 @@ export default function TransferMinigame({ points, setPoints }) {
 
       setTimeout(async () => {
         setPhase('transitioning')
+        setLoadingNext(true)
         const fresh1 = await fetchFresh(right.id)
         const fresh2 = await fetchFresh(fresh1?.id ?? 0)
         markSeen(fresh1?.id); markSeen(fresh2?.id)
         setLeft(fresh1); setRight(fresh2)
         const upcoming = await fetchFresh(fresh2?.id ?? 0)
         setQueue(upcoming ? [upcoming] : [])
+        setLoadingNext(false)
         setPhase('playing')
       }, 2000)
     }
@@ -227,7 +233,9 @@ export default function TransferMinigame({ points, setPoints }) {
           background: 'var(--bg2)', border: '1px solid var(--border)',
           borderRadius: 20, overflow: 'hidden', minHeight: 480,
         }}>
+        <div style={{ position: 'relative', flex: 1, minHeight: 480, display: 'flex' }}>
           <PlayerPanel player={left}  showValue={true}   side="left"  />
+        </div>
 
           {/* Center panel */}
           <div style={{
@@ -283,7 +291,18 @@ export default function TransferMinigame({ points, setPoints }) {
             )}
           </div>
 
-          <PlayerPanel player={right} showValue={revealed} side="right" dim={!revealed} />
+          <div style={{ position: 'relative', flex: 1, minHeight: 480, display: 'flex' }}>
+            <PlayerPanel player={right} showValue={revealed} side="right" dim={revealed && phase === 'reveal-wrong'} isLoading={loadingNext} />
+            {loadingNext && (
+              <div style={{
+                position: 'absolute', inset: 0, zIndex: 10,
+                background: 'rgba(8,11,20,0.4)', backdropFilter: 'blur(4px)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center'
+              }}>
+                <span className="spinner-ring" style={{ width: 40, height: 40 }} />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Points legend */}
@@ -305,16 +324,33 @@ export default function TransferMinigame({ points, setPoints }) {
   )
 }
 
-function PlayerPanel({ player, showValue, side, dim }) {
-  if (!player) return <div style={{ flex: 1 }} />
+function PlayerPanel({ player, showValue, side, dim, isLoading }) {
+  if (!player) return <div style={{ flex: 1, background: 'var(--bg3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span className="spinner-ring" /></div>
   const isLeft    = side === 'left'
   const accent    = isLeft ? 'var(--blue)' : 'var(--purple)'
   const accentAlpha = isLeft ? 'rgba(79,195,247,0.12)' : 'rgba(168,85,247,0.12)'
+  
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 32px', gap: 20, position: 'relative', overflow: 'hidden', background: accentAlpha, filter: dim ? 'brightness(0.7)' : 'brightness(1)', transition: 'filter 0.4s' }}>
+    <div style={{ 
+      flex: 1,
+      display: 'flex', 
+      flexDirection: 'column', 
+      alignItems: 'center', 
+      justifyContent: 'center', 
+      padding: '40px 32px', 
+      gap: 20, 
+      position: 'relative', 
+      overflow: 'hidden', 
+      background: accentAlpha, 
+      filter: dim ? 'brightness(0.7)' : 'brightness(1)', 
+      transition: 'all 0.5s ease',
+      opacity: isLoading ? 0.5 : 1,
+      transform: isLoading ? 'scale(0.98)' : 'scale(1)'
+    }}>
       {player.image_url && (
         <div style={{ position: 'absolute', inset: 0, zIndex: 0, backgroundImage: `url(${player.image_url})`, backgroundSize: 'cover', backgroundPosition: 'center top', filter: 'grayscale(0.8) opacity(0.12)' }} />
       )}
+      
       <div style={{ position: 'relative', zIndex: 1, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
         <div style={{ width: 120, height: 120, borderRadius: '50%', border: `3px solid ${accent}40`, overflow: 'hidden', background: accentAlpha, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 0 40px ${accent}20`, flexShrink: 0 }}>
           {player.image_url ? (
@@ -323,13 +359,68 @@ function PlayerPanel({ player, showValue, side, dim }) {
             <Icons.Shield size={48} color={accent} />
           )}
         </div>
+
         <div style={{ textAlign: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 4 }}>
             <div style={{ width: 8, height: 8, borderRadius: '50%', background: accent }} />
             <span style={{ fontSize: 11, fontWeight: 700, color: accent, textTransform: 'uppercase', letterSpacing: 1.5 }}>{player.team_name}</span>
           </div>
           <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.3px' }}>{player.name}</div>
+          
+          {/* Metadata Row */}
+          <div className="animate-in" style={{ 
+            display: 'flex', 
+            gap: '8px', 
+            justifyContent: 'center', 
+            marginTop: '12px', 
+            flexWrap: 'wrap' 
+          }}>
+            {player.position && (
+              <span style={{ 
+                fontSize: '10px', 
+                background: 'rgba(255,255,255,0.08)', 
+                padding: '4px 10px', 
+                borderRadius: '20px', 
+                color: 'var(--text)', 
+                border: '1px solid rgba(255,255,255,0.1)',
+                fontWeight: 600,
+                textShadow: '0 1px 2px rgba(0,0,0,0.5)'
+              }}>
+                {player.position}
+              </span>
+            )}
+            {player.height > 0 && (
+              <span style={{ 
+                fontSize: '10px', 
+                background: 'rgba(255,255,255,0.08)', 
+                padding: '4px 10px', 
+                borderRadius: '20px', 
+                color: 'var(--text)', 
+                border: '1px solid rgba(255,255,255,0.1)',
+                fontWeight: 600,
+                textShadow: '0 1px 2px rgba(0,0,0,0.5)'
+              }}>
+                {player.height} cm
+              </span>
+            )}
+            {player.foot && (
+              <span style={{ 
+                fontSize: '10px', 
+                background: 'rgba(255,255,255,0.08)', 
+                padding: '4px 10px', 
+                borderRadius: '20px', 
+                color: 'var(--text)', 
+                border: '1px solid rgba(255,255,255,0.1)',
+                fontWeight: 600,
+                textTransform: 'capitalize',
+                textShadow: '0 1px 2px rgba(0,0,0,0.5)'
+              }}>
+                {player.foot.toLowerCase() === 'right' ? 'Right' : player.foot.toLowerCase() === 'left' ? 'Left' : player.foot}
+              </span>
+            )}
+          </div>
         </div>
+
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 6 }}>
             {showValue ? 'Market Value' : '???'}

@@ -114,13 +114,7 @@ export default function Teams({ leagueId }) {
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: 2 }}>Metadata</div>
-                      <InfoRow label="Stadium"  value={team.venue_name || '—'} />
-                      <InfoRow label="City"     value={team.venue_city || '—'} />
-                      <InfoRow label="Founded"  value={team.founded || '—'} />
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: 2 }}>All-Time Record</div>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: 2 }}>Current Form</div>
                       {s ? (
                         <>
                           <InfoRow label="Played"   value={s.played} />
@@ -132,6 +126,22 @@ export default function Teams({ leagueId }) {
                         </>
                       ) : (
                         <div style={{ fontSize: 11, color: 'var(--text3)', fontStyle: 'italic' }}>Loading stats…</div>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: 2 }}>Historical Dominance</div>
+                      {s?.historical ? (
+                        <>
+                          <InfoRow label="All-time Wins"  value={s.historical.total_wins} highlight />
+                          <InfoRow label="Total Goals"    value={s.historical.total_goals} />
+                          <InfoRow label="Avg. Rank"      value={s.historical.avg_rank} highlight />
+                          <InfoRow label="Matches"         value={s.historical.all_time_games} />
+                          <div style={{ marginTop: 4, height: 1, background: 'var(--border2)' }} />
+                          <InfoRow label="Stadium"  value={team.venue_name || '—'} />
+                          <InfoRow label="City"     value={team.venue_city || '—'} />
+                        </>
+                      ) : (
+                        <div style={{ fontSize: 11, color: 'var(--text3)', fontStyle: 'italic' }}>Historical data unavailable (N/A)</div>
                       )}
                     </div>
                   </div>
@@ -169,23 +179,23 @@ export default function Teams({ leagueId }) {
                 onClick={() => toggleCompare(team.team_name)}
               >
                 <div className="team-card-header">
-                  <div className="team-card-logo-name">
-                    {logo ? (
-                      <img src={logo} alt={team.team_name} className="team-logo" />
-                    ) : (
-                      <div style={{ width: 44, height: 44, background: 'var(--bg4)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <Icons.Shield size={22} color="var(--text3)" />
-                      </div>
-                    )}
-                    <div>
-                      <div className="team-card-name">{team.team_name}</div>
-                      <div className="team-card-country" style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
-                        {[team.country, team.founded ? `Est. ${team.founded}` : null].filter(Boolean).join(' · ') || LEAGUE_NAMES[leagueId]}
+                    <div className="team-card-logo-name" style={{ flex: 1, minWidth: 0 }}>
+                      {logo ? (
+                        <img src={logo} alt={team.team_name} className="team-logo" />
+                      ) : (
+                        <div style={{ width: 44, height: 44, background: 'var(--bg4)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <Icons.Shield size={22} color="var(--text3)" />
+                        </div>
+                      )}
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div className="team-card-name" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{team.team_name}</div>
+                        <div className="team-card-country" style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+                          {[team.country, team.founded ? `Est. ${team.founded}` : null].filter(Boolean).join(' · ') || LEAGUE_NAMES[leagueId]}
+                        </div>
                       </div>
                     </div>
+                    {isSelected && <span className="badge badge-green" style={{ flexShrink: 0, marginLeft: 8 }}><Icons.Check size={11} /> Selected</span>}
                   </div>
-                  {isSelected && <span className="badge badge-green"><Icons.Check size={11} /> Selected</span>}
-                </div>
 
                 <div style={{ marginTop: 14 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
